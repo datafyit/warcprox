@@ -12,9 +12,13 @@ try:
 except ImportError:
     import urlparse as urllib_parse
 
+import os
 import socket
 import logging
 import ssl
+
+import socks
+
 
 class MitmProxyHandler(http_server.BaseHTTPRequestHandler):
     logger = logging.getLogger("warcprox.mitmproxy.MitmProxyHandler")
@@ -48,7 +52,22 @@ class MitmProxyHandler(http_server.BaseHTTPRequestHandler):
 
     def _connect_to_host(self):
         # Connect to destination
-        self._proxy_sock = socket.socket()
+        if "HTTP_PROXY" in os.environ:
+            split_result = urllib_parse.urlsplit(os.environ["HTTP_PROXY"])
+
+            self._proxy_sock = socks.socksocket()
+
+            self._proxy_sock.set_proxy(
+                proxy_type=socks.PROXY_TYPE_HTTP,
+                addr=split_result.hostname,
+                port=split_result.port,
+                username=split_result.username,
+                password=split_result.password,
+            )
+
+        else:
+            self._proxy_sock = socket.socket()
+
         self._proxy_sock.settimeout(60)
         self._proxy_sock.connect((self.hostname, int(self.port)))
 

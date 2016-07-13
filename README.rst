@@ -13,7 +13,7 @@ pymiproxy, warcprox is also GPL.
 Install
 ~~~~~~~
 
-Warcprox runs on python 3.4.
+Warcprox runs on python 3.5.
 
 To install latest release run:
 
