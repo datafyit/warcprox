@@ -150,6 +150,11 @@ class ProxyingRecordingHTTPResponse(http_client.HTTPResponse):
 
 
 class WarcProxyHandler(warcprox.mitmproxy.MitmProxyHandler):
+    # Select HTTP/1.1 protocol to allow persistent connections; see:
+    # https://docs.python.org/2/library/basehttpserver.html#BaseHTTPServer.BaseHTTPRequestHandler.protocol_version
+    # https://docs.python.org/3/library/http.server.html#http.server.BaseHTTPRequestHandler.protocol_version
+    protocol_version = 'HTTP/1.1'
+
     logger = logging.getLogger("warcprox.warcprox.WarcProxyHandler")
 
     def _proxy_request(self):
@@ -206,7 +211,10 @@ class WarcProxyHandler(warcprox.mitmproxy.MitmProxyHandler):
 
         # Let's close off the remote end
         h.close()
-        self._proxy_sock.close()
+        if self.close_connection:
+            # If the connection is to be closed, close proxy socket as well.
+            self.logger.debug('Closing proxy socket.')
+            self._proxy_sock.close()
 
         recorded_url = RecordedUrl(url=self.url, request_data=req,
                 response_recorder=h.recorder, remote_ip=remote_ip,
@@ -214,6 +222,13 @@ class WarcProxyHandler(warcprox.mitmproxy.MitmProxyHandler):
         self.server.recorded_url_q.put(recorded_url)
 
         return recorded_url
+
+    def finish(self):
+        super(WarcProxyHandler, self).finish()
+        if not self._proxy_sock._closed:
+            # If proxy socket has not been closed yet, close it now.
+            self.logger.debug('Finishing: closing proxy socket.')
+            self._proxy_sock.close()
 
 
 class RecordedUrl(object):
